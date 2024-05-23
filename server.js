@@ -1,86 +1,187 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const path = require('path');
-const cors = require('cors'); // Import cors package
-require('dotenv').config();
+import React, { useState } from 'react';
+import axios from 'axios';
+import './App.css';
 
-const app = express();
-const DB = process.env.DATABASE;
-const PORT = process.env.PORT || 3000;
-
-// Use CORS middleware
-app.use(cors());
-
-// Connect to MongoDB
-mongoose.connect(DB, { useNewUrlParser: true, useUnifiedTopology: true });
-const dbs = mongoose.connection;
-
-// Wait for the MongoDB connection to be established
-dbs.once('open', () => {
-    console.log('Connected to MongoDB');
-
-    // Serve static files
-    app.use(express.static(path.join(__dirname, 'build')));
-
-    // Middleware for parsing JSON bodies
-    app.use(bodyParser.json());
-
-    // Define patient schema and model
-    const patientSchema = new mongoose.Schema({
-        firstName: String,
-        lastName: String,
-        contacts: String,
-        age: Number,
-        dateOfentry: String,
-        medicalHistory: [String],
-        doctorName: String,
+const PatientForm = () => {
+    const [formData, setFormData] = useState({
+        firstName: '',
+        lastName: '',
+        contacts: '',
+        age: '',
+        dateOfentry: '',
+        medicalHistory: [],
+        doctorName: '',
     });
-    const Patient = mongoose.model('Patient', patientSchema);
 
-    // API endpoint to add a new patient
-    app.post('/api/patients', async (req, res) => {
-        try {
-            const patient = new Patient(req.body);
-            await patient.save();
-            res.status(201).json(patient);
-        } catch (err) {
-            console.error(err);
-            res.status(500).json({ error: 'Server error' });
+    const [errors, setErrors] = useState({
+        firstName: '',
+        contacts: '',
+        age: '',
+    });
+
+    const validate = () => {
+        let isValid = true;
+        const newErrors = { firstName: '', contacts: '', age: '' };
+
+        if (!formData.firstName.trim()) {
+            newErrors.firstName = 'First Name is Required';
+            isValid = false;
         }
-    });
 
-    // API endpoint to fetch all patients
-    app.get('/api/patients/all', async (req, res) => {
-        try {
-            const patients = await Patient.find();
-            res.json(patients);
-        } catch (err) {
-            console.error(err);
-            res.status(500).json({ error: 'Server error' });
+        if (!/^\d{10}$/.test(formData.contacts)) {
+            newErrors.contacts = 'Enter a Valid 10 digit number';
+            isValid = false;
         }
-    });
 
-    // API endpoint to search for patients by first name or doctor name
-    app.get('/api/patients/search', async (req, res) => {
-        const { firstName, doctorName } = req.query;
-        try {
-            let patients;
-            if (firstName) {
-                patients = await Patient.find({ firstName });
-            } else if (doctorName) {
-                patients = await Patient.find({ doctorName });
-            }
-            res.json(patients);
-        } catch (err) {
-            console.error(err);
-            res.status(500).json({ error: 'Server error' });
+        if (!formData.age || formData.age < 1 || formData.age > 101) {
+            newErrors.age = 'Enter a valid age not exceeding 101yrs';
+            isValid = false;
         }
-    });
 
-    // Start the server
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-});
+        setErrors(newErrors);
+        return isValid;
+    };
 
-// MongoDB connection error handling
-dbs.on('error', console.error.bind(console, 'MongoDB connection error:'));
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData((prevData) => ({
+            ...prevData,
+            [name]: value,
+        }));
+    };
+
+    const handleCheckboxChange = (e) => {
+        const { name, checked } = e.target;
+        setFormData((prevData) => ({
+            ...prevData,
+            medicalHistory: checked
+                ? [...prevData.medicalHistory, name]
+                : prevData.medicalHistory.filter((item) => item !== name),
+        }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        if (!validate()) {
+            return;
+        }
+
+        try {
+            await axios.post('https://clinic-backend-4.onrender.com/api/patients', formData);
+            setFormData({
+                firstName: '',
+                lastName: '',
+                contacts: '',
+                age: '',
+                dateOfentry: '',
+                medicalHistory: [],
+                doctorName: '',
+            });
+            alert('Patient data submitted successfully');
+        } catch (error) {
+            console.error('Error submitting patient data:', error);
+            alert('Error submitting patient data. Please try again later.');
+        }
+    };
+
+    return (
+        <form id="pform" onSubmit={handleSubmit}>
+            <div className="left-partition">
+                <input
+                    placeholder="First Name"
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    required
+                />
+                {errors.firstName && <span style={{ color: 'red' }}>{errors.firstName}</span>}
+                <input
+                    placeholder="Last Name"
+                    type="text"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    required
+                />
+                <div id="dropd">
+                    <input
+                        type="checkbox"
+                        name="bp"
+                        checked={formData.medicalHistory.includes('bp')}
+                        onChange={handleCheckboxChange}
+                    /> BP  <br />
+                    <input
+                        type="checkbox"
+                        name="act"
+                        checked={formData.medicalHistory.includes('act')}
+                        onChange={handleCheckboxChange}
+                    /> ACT <br />
+                    <input
+                        type="checkbox"
+                        name="asthama"
+                        checked={formData.medicalHistory.includes('asthama')}
+                        onChange={handleCheckboxChange}
+                    /> Asthma <br />
+                    <input
+                        type="checkbox"
+                        name="thyroid"
+                        checked={formData.medicalHistory.includes('thyroid')}
+                        onChange={handleCheckboxChange}
+                    /> Thyroid  <br />
+                    <input
+                        type="checkbox"
+                        name="dm"
+                        checked={formData.medicalHistory.includes('dm')}
+                        onChange={handleCheckboxChange}
+                    /> Diabetes   <br />
+                    <input
+                        type="checkbox"
+                        name="pregnancy"
+                        checked={formData.medicalHistory.includes('pregnancy')}
+                        onChange={handleCheckboxChange}
+                    /> Pregnant<br />
+                </div>
+            </div>
+            <div className="right-partition">
+                <input
+                    placeholder="Contact"
+                    type="text"
+                    name="contacts"
+                    value={formData.contacts}
+                    onChange={handleChange}
+                />
+                {errors.contacts && <span style={{ color: 'red' }}>{errors.contacts}</span>}
+                <input
+                    placeholder="Age"
+                    type="number"
+                    name="age"
+                    value={formData.age}
+                    onChange={handleChange}
+                />
+                {errors.age && <span style={{ color: 'red' }}>{errors.age}</span>}
+                <input
+                    id="date"
+                    placeholder="Date"
+                    type="date"
+                    name="dateOfentry"
+                    value={formData.dateOfentry}
+                    onChange={handleChange}
+                />
+                <select
+                    name="doctorName"
+                    value={formData.doctorName}
+                    onChange={handleChange}
+                >
+                    <option value="null">Doctor</option>
+                    <option value="Dr Ruchi">Dr Ruchi</option>
+                    <option value="Dr Renu">Dr Renu</option>
+                </select>
+                <button type="submit">Submit</button>
+            </div>
+        </form>
+    );
+};
+
+export default PatientForm;
