@@ -119,7 +119,7 @@ dbs.once('open', () => {
             if (!deletedPatient) {
                 return res.status(404).json({ error: 'Patient not found' });
             }
-            res.json({ message: 'Patient deleted successfully' });
+            res.json({ message: `Patient ${deletedPatient.firstName} deleted` });
         } catch (err) {
             console.error(err);
             res.status(500).json({ error: 'Server error' });
