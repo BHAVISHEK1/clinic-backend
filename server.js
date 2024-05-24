@@ -17,7 +17,7 @@ app.use(express.static(path.join(__dirname, 'build')));
 mongoose.connect(DB, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    poolSize: 10 // Ensure pooling is used for better performance
+    maxPoolSize: 10 // Correct option name for connection pooling
 });
 
 const dbs = mongoose.connection;
