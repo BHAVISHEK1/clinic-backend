@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const path = require('path');
 const cors = require('cors');
-const { type } = require('os');
 require('dotenv').config();
 const validator = require("validator");
 
@@ -12,20 +11,25 @@ const DB = process.env.DATABASE;
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'build')));
 
-mongoose.connect(DB, { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect(DB, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    poolSize: 10 // Ensure pooling is used for better performance
+});
+
 const dbs = mongoose.connection;
 
 dbs.once('open', () => {
     console.log('Connected to MongoDB');
-    app.use(express.static(path.join(__dirname, 'build')));
-
-    app.use(bodyParser.json());
 
     const patientSchema = new mongoose.Schema({
         firstName: {
             type: String,
             required: true,
+            index: true
         },
         lastName: {
             type: String
@@ -36,23 +40,25 @@ dbs.once('open', () => {
             maxlength: 10
         },
         age: {
-            type: String,
+            type: Number,
             validate(value) {
-                if (age > 10) {
+                if (value > 101) {
                     throw Error("not valid age")
                 }
             }
         },
         dateOfentry: {
-            type: String
+            type: Date
         },
         medicalHistory: {
             type: [String],
         },
         doctorName: {
             type: String,
+            index: true
         }
     });
+
     const Patient = mongoose.model('Patient', patientSchema);
 
     app.post('/api/patients', async (req, res) => {
@@ -92,7 +98,6 @@ dbs.once('open', () => {
         }
     });
 
-
     app.put('/api/patients/:id', async (req, res) => {
         const { id } = req.params;
         try {
@@ -106,14 +111,8 @@ dbs.once('open', () => {
             res.status(500).json({ error: 'Server error' });
         }
     });
-    
-
-
-
-
 
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 });
 
 dbs.on('error', console.error.bind(console, 'MongoDB connection error:'));
- 
