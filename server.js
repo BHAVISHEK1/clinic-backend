@@ -112,6 +112,20 @@ dbs.once('open', () => {
         }
     });
 
+    app.delete('/api/patients/:id', async (req, res) => {
+        const { id } = req.params;
+        try {
+            const deletedPatient = await Patient.findByIdAndDelete(id);
+            if (!deletedPatient) {
+                return res.status(404).json({ error: 'Patient not found' });
+            }
+            res.json({ message: 'Patient deleted successfully' });
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ error: 'Server error' });
+        }
+    });
+
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 });
 
