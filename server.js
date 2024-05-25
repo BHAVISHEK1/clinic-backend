@@ -13,6 +13,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'build')));
+app.use(params)
 
 mongoose.connect(DB, {
     useNewUrlParser: true,
@@ -131,17 +132,17 @@ dbs.once('open', () => {
     app.post('/api/patients/undo-delete/:id', async (req, res) => {
         const { id } = req.params;
         try {
-            const deletedPatient = await Patient.findById(id);
+            const deletedPatient = await Patient.findByIdAndDelete(id);
             if (!deletedPatient) {
                 return res.status(404).json({ error: 'Patient not found' });
             }
-            const restoredPatient = await Patient.create(deletedPatient);
-            res.json({ message: `Patient ${restoredPatient.firstName} restored` });
+            res.json({ message: `Patient ${deletedPatient.firstName} restored` });
         } catch (err) {
             console.error(err);
             res.status(500).json({ error: 'Server error' });
         }
     });
+    
     
 
 
