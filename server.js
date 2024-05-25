@@ -111,6 +111,7 @@ dbs.once('open', () => {
             res.status(500).json({ error: 'Server error' });
         }
     });
+    
 
     app.delete('/api/patients/:id', async (req, res) => {
         const { id } = req.params;
@@ -125,6 +126,25 @@ dbs.once('open', () => {
             res.status(500).json({ error: 'Server error' });
         }
     });
+
+
+    app.post('/api/patients/undo-delete/:id', async (req, res) => {
+        const { id } = req.params;
+        try {
+            const deletedPatient = await Patient.findById(id);
+            if (!deletedPatient) {
+                return res.status(404).json({ error: 'Patient not found' });
+            }
+            const restoredPatient = await Patient.create(deletedPatient);
+            res.json({ message: `Patient ${restoredPatient.firstName} restored` });
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ error: 'Server error' });
+        }
+    });
+    
+
+
 
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 });
