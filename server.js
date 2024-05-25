@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'build')));
-app.use(params)
+
 
 mongoose.connect(DB, {
     useNewUrlParser: true,
