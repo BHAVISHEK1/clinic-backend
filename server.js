@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const path = require('path');
 const cors = require('cors');
+const { Parser } = require('json2csv');
 const fs = require('fs');
-const csv = require('fast-csv');
 require('dotenv').config();
 const validator = require("validator");
 
@@ -19,7 +19,7 @@ app.use(express.static(path.join(__dirname, 'build')));
 mongoose.connect(DB, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    maxPoolSize: 10 // Correct option name for connection pooling
+    maxPoolSize: 10
 });
 
 const dbs = mongoose.connection;
@@ -31,7 +31,7 @@ dbs.once('open', () => {
         firstName: { type: String, required: true, index: true },
         lastName: { type: String },
         contacts: { type: String, minlength: 10, maxlength: 10 },
-        age: { type: Number, validate(value) { if (value > 101) { throw Error("not valid age") } } },
+        age: { type: Number, validate(value) { if (value > 101) throw Error("not valid age") } },
         dateOfentry: { type: Date },
         medicalHistory: { type: [String] },
         doctorName: { type: String, index: true }
@@ -49,6 +49,8 @@ dbs.once('open', () => {
             res.status(500).json({ error: 'Server error' });
         }
     });
+
+    
 
     app.get('/api/patients/all', async (req, res) => {
         try {
@@ -104,34 +106,23 @@ dbs.once('open', () => {
         }
     });
 
-    // Add the export to CSV endpoint
-    app.get('/api/patients/export', async (req, res) => {
+    // CSV export endpoint
+    app.get('/api/patients/export/csv', async (req, res) => {
         try {
             const patients = await Patient.find();
-            const csvStream = csv.format({ headers: true });
-            const writableStream = fs.createWriteStream('public/files/export/patients.csv');
+            const fields = ['firstName', 'lastName', 'contacts', 'age', 'dateOfentry', 'medicalHistory', 'doctorName'];
+            const opts = { fields };
+            const parser = new Parser(opts);
+            const csv = parser.parse(patients);
+            const filePath = path.join(__dirname, 'public/files/export/patients.csv');
+            
+            // Ensure directories exist
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
+            fs.writeFileSync(filePath, csv);
 
-            writableStream.on('finish', () => {
-                res.json({ downloadUrl: `${req.protocol}://${req.get('host')}/files/export/patients.csv` });
-            });
-
-            csvStream.pipe(writableStream);
-
-            patients.forEach(patient => {
-                csvStream.write({
-                    FirstName: patient.firstName,
-                    LastName: patient.lastName,
-                    Contacts: patient.contacts,
-                    Age: patient.age,
-                    DateOfEntry: patient.dateOfentry,
-                    MedicalHistory: patient.medicalHistory.join(', '),
-                    DoctorName: patient.doctorName
-                });
-            });
-
-            csvStream.end();
-        } catch (error) {
-            console.error('Error exporting patients to CSV:', error);
+            res.download(filePath);
+        } catch (err) {
+            console.error(err);
             res.status(500).json({ error: 'Server error' });
         }
     });
