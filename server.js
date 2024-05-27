@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const path = require('path');
 const cors = require('cors');
+const fs = require('fs');
+const csv = require('fast-csv');
 require('dotenv').config();
 const validator = require("validator");
 
@@ -13,7 +15,6 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'build')));
-
 
 mongoose.connect(DB, {
     useNewUrlParser: true,
@@ -27,37 +28,13 @@ dbs.once('open', () => {
     console.log('Connected to MongoDB');
 
     const patientSchema = new mongoose.Schema({
-        firstName: {
-            type: String,
-            required: true,
-            index: true
-        },
-        lastName: {
-            type: String
-        },
-        contacts: {
-            type: String,
-            minlength: 10,
-            maxlength: 10
-        },
-        age: {
-            type: Number,
-            validate(value) {
-                if (value > 101) {
-                    throw Error("not valid age")
-                }
-            }
-        },
-        dateOfentry: {
-            type: Date
-        },
-        medicalHistory: {
-            type: [String],
-        },
-        doctorName: {
-            type: String,
-            index: true
-        }
+        firstName: { type: String, required: true, index: true },
+        lastName: { type: String },
+        contacts: { type: String, minlength: 10, maxlength: 10 },
+        age: { type: Number, validate(value) { if (value > 101) { throw Error("not valid age") } } },
+        dateOfentry: { type: Date },
+        medicalHistory: { type: [String] },
+        doctorName: { type: String, index: true }
     });
 
     const Patient = mongoose.model('Patient', patientSchema);
@@ -112,7 +89,6 @@ dbs.once('open', () => {
             res.status(500).json({ error: 'Server error' });
         }
     });
-    
 
     app.delete('/api/patients/:id', async (req, res) => {
         const { id } = req.params;
@@ -128,24 +104,37 @@ dbs.once('open', () => {
         }
     });
 
-
-    app.post('/api/patients/undo-delete/:id', async (req, res) => {
-        const { id } = req.params;
+    // Add the export to CSV endpoint
+    app.get('/api/patients/export', async (req, res) => {
         try {
-            const deletedPatient = await Patient.findByIdAndDelete(id);
-            if (!deletedPatient) {
-                return res.status(404).json({ error: 'Patient not found' });
-            }
-            res.json({ message: `Patient ${deletedPatient.firstName} restored` });
-        } catch (err) {
-            console.error(err);
+            const patients = await Patient.find();
+            const csvStream = csv.format({ headers: true });
+            const writableStream = fs.createWriteStream('public/files/export/patients.csv');
+
+            writableStream.on('finish', () => {
+                res.json({ downloadUrl: `${req.protocol}://${req.get('host')}/files/export/patients.csv` });
+            });
+
+            csvStream.pipe(writableStream);
+
+            patients.forEach(patient => {
+                csvStream.write({
+                    FirstName: patient.firstName,
+                    LastName: patient.lastName,
+                    Contacts: patient.contacts,
+                    Age: patient.age,
+                    DateOfEntry: patient.dateOfentry,
+                    MedicalHistory: patient.medicalHistory.join(', '),
+                    DoctorName: patient.doctorName
+                });
+            });
+
+            csvStream.end();
+        } catch (error) {
+            console.error('Error exporting patients to CSV:', error);
             res.status(500).json({ error: 'Server error' });
         }
     });
-    
-    
-
-
 
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 });
